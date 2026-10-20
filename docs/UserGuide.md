@@ -78,6 +78,12 @@ The **RANKING** panel displays applicants in the active comparison list.
 Searching filters the applicant list and leaves the leaderboard unchanged. Applicant names update after edits.
 Commands such as `edit` and `delete` use indices from the **All applicants** list.
 
+The message above the leaderboard reports whether the ranking has enough supporting evidence. It first
+requires five comparisons per active applicant and a connected comparison history. It then checks
+statistical uncertainty at 95% confidence. Applicants that remain genuinely close are named together
+as **Close/uncertain**; their display order is not a supported strict ordering. A ready message is
+advice only: the recruiter decides when to stop and may keep comparing.
+
 **Current iteration:** The leaderboard starts empty and shows **No applicants in the comparison list.**
 Use `compare-add INDEX` to include an existing applicant in the leaderboard.
 Adding applicant records alone leaves the leaderboard empty. Use `choose a` or `choose b` to record a comparison.
@@ -127,8 +133,11 @@ Examples:
 
 Adding an applicant updates the ranking immediately. Membership and comparison decisions are saved
 with the applicant records and restored when the application reopens. Using `clear` also resets membership.
-Once two applicants are in the comparison list, a random pair appears in the comparison panel.
+Once two applicants are in the comparison list, a pair appears in the comparison panel.
 Adding more applicants keeps the current pair. Applicants can be compared repeatedly.
+Pair selection prioritizes applicants with little evidence, connects separate comparison groups, and
+then seeks the comparison expected to reduce ranking uncertainty most. When more than two applicants
+are active, it avoids showing the just-completed pair again if another pair is available.
 
 ### Removing an applicant from the comparison list: `compare-remove`
 
@@ -151,7 +160,7 @@ Examples:
 * `find Betsy` followed by `compare-remove 1` selects the first applicant in the search results.
 
 Removing an applicant updates the ranking immediately. Membership and comparison decisions are saved
-with the applicant records. If the applicant is in the unanswered pair, a random replacement pair is selected.
+with the applicant records. If the applicant is in the unanswered pair, a replacement pair is selected.
 The pair is cleared when fewer than two comparison-list members remain.
 
 ### Choosing the stronger applicant: `choose`
@@ -164,8 +173,8 @@ Format: `choose a` or `choose b`
   Uppercase `A` and `B` are also accepted.
 * These labels refer to the current comparison pair. Searching the applicant list does not change their meaning.
 * A pending pair is required. Add at least two applicants using `compare-add INDEX` to start comparisons.
-* The decision is added to the history, the ranking updates immediately, and a random next pair appears.
-  The next pair may contain the same applicants, and their sides may change.
+* The decision is added to the history, the ranking updates immediately, and an informative next pair appears.
+  Repeated comparisons are allowed; with only two active applicants, their pair necessarily repeats.
 * Each repeated choice records a separate decision. Applicant records, membership, and the search filter are retained.
 * The decision history and the new pending pair are saved automatically after a successful command.
 * Missing or invalid sides, extra arguments, and choices without a valid pending pair are rejected.

@@ -18,6 +18,7 @@ import seedu.address.model.Model;
 import seedu.address.model.applicant.Applicant;
 import seedu.address.model.comparison.ComparisonPair;
 import seedu.address.model.ranking.RankingEntry;
+import seedu.address.model.ranking.RankingReadiness;
 import seedu.address.storage.Storage;
 
 /**
@@ -81,6 +82,11 @@ public class LogicManager implements Logic {
     @Override
     public ObservableList<RankingEntry> getRanking() {
         return model.getRankingEngine().getRanking();
+    }
+
+    @Override
+    public ReadOnlyObjectProperty<RankingReadiness> getRankingReadinessProperty() {
+        return model.getComparisonList().readinessProperty();
     }
 
     @Override

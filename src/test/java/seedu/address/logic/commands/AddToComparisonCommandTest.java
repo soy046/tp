@@ -224,7 +224,7 @@ public class AddToComparisonCommandTest {
         assertEquals(Optional.of(pair), connectedModel.getComparisonList().getCurrentPair());
         assertEquals(recalculationsBefore + 1, rankingEngine.recalculationCount);
         assertEquals(Set.of(ALICE.getId(), BENSON.getId(), CARL.getId()), rankingEngine.lastActiveMembers);
-        assertEquals(List.of(decision), rankingEngine.lastDecisions);
+        assertEquals(List.of(decision), realComparisonList.getDecisionHistory());
         assertEquals(recordsBefore, connectedModel.getApplicantRegistry().getApplicantList());
         assertEquals(List.of(CARL), connectedModel.getFilteredApplicantList());
     }
@@ -345,6 +345,12 @@ public class AddToComparisonCommandTest {
             recalculationCount++;
             lastActiveMembers = Set.copyOf(activeMembers);
             lastDecisions = List.copyOf(decisions);
+        }
+
+        @Override
+        public void recalculate(seedu.address.model.ranking.ComparisonStatistics statistics) {
+            recalculationCount++;
+            lastActiveMembers = Set.copyOf(statistics.ids());
         }
     }
 }

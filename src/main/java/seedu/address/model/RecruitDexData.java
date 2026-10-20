@@ -10,6 +10,7 @@ import seedu.address.commons.util.ToStringBuilder;
 import seedu.address.model.applicant.Applicant;
 import seedu.address.model.applicant.ApplicantRegistry;
 import seedu.address.model.comparison.ComparisonList;
+import seedu.address.model.comparison.ComparisonSettings;
 import seedu.address.model.comparison.ComparisonState;
 import seedu.address.model.comparison.ReadOnlyComparisonList;
 import seedu.address.model.ranking.RankingEngine;
@@ -29,8 +30,12 @@ public class RecruitDexData implements ReadOnlyRecruitDexData {
     }
 
     private RecruitDexData(RankingEngine rankingEngine) {
+        this(rankingEngine, new ComparisonSettings());
+    }
+
+    private RecruitDexData(RankingEngine rankingEngine, ComparisonSettings settings) {
         comparisonList = new ComparisonList(applicantRegistry, new ComparisonState(applicantRegistry),
-                rankingEngine);
+                rankingEngine, settings);
         applicantRegistry.setDeletionHandler(comparisonList::deleteApplicantReferences);
     }
 
@@ -45,6 +50,11 @@ public class RecruitDexData implements ReadOnlyRecruitDexData {
     /** Creates saved data connected to ModelManager's runtime ranking engine. */
     RecruitDexData(ReadOnlyRecruitDexData toBeCopied, RankingEngine rankingEngine) {
         this(rankingEngine);
+        resetData(toBeCopied);
+    }
+
+    RecruitDexData(ReadOnlyRecruitDexData toBeCopied, RankingEngine rankingEngine, ComparisonSettings settings) {
+        this(rankingEngine, settings);
         resetData(toBeCopied);
     }
 

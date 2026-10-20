@@ -198,7 +198,7 @@ public class ComparisonListTest {
         assertEquals(ALICE.getId(), decision.getWinnerId());
         assertEquals(ALICE.getId(), decision.getFirstApplicantId());
         assertEquals(BENSON.getId(), decision.getSecondApplicantId());
-        assertEquals(List.of(decision), rankingEngine.lastDecisions);
+        assertEquals(List.of(decision), comparisonList.getDecisionHistory());
         ComparisonPair nextPair = comparisonList.getCurrentPair().orElseThrow();
         assertNotEquals(nextPair.getFirstApplicantId(), nextPair.getSecondApplicantId());
         assertTrue(comparisonList.getMemberIds().contains(nextPair.getFirstApplicantId()));
@@ -289,6 +289,12 @@ public class ComparisonListTest {
             recalculationCount++;
             lastActiveMembers = Set.copyOf(activeMembers);
             lastDecisions = List.copyOf(decisions);
+        }
+
+        @Override
+        public void recalculate(seedu.address.model.ranking.ComparisonStatistics statistics) {
+            recalculationCount++;
+            lastActiveMembers = Set.copyOf(statistics.ids());
         }
     }
 

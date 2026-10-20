@@ -188,7 +188,7 @@ This section describes some noteworthy details on how certain features are imple
 
 `ModelManager` owns the shared engine. `Logic.getRanking()` exposes its view to `RankingPanel`, which refreshes names from the full applicant list independently of search filtering. UI-bound observable updates must run on the JavaFX application thread.
 
-**Current scope:** Comparison-list and decision commands are not connected to the running app yet. The leaderboard starts empty, and ranking progress is not persisted. Replacing application data clears the ranking while retaining its observable view.
+Comparison-list and decision commands update the running app. Membership, decisions, and the pending pair are persisted. Ranking scores, posterior uncertainty, and readiness are rebuilt from that data. `ComparisonStatisticsIndex` lets `ComparisonList` refresh rankings from aggregated decisions without scanning the whole history after each choice. `PairSelector` uses coverage and expected information gain; the UI displays an evidence-readiness message without stopping the recruiter from making more comparisons.
 
 ### \[Proposed\] Undo/redo feature
 

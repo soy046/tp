@@ -36,6 +36,8 @@ ModelManager
 |       |   `-- Optional ComparisonPair
 |       `-- PairSelector             runtime collaborator, not saved
 |-- RankingEngine                   calculates the ranking
+|-- BayesianRankingModel            runtime uncertainty model
+|-- RankingReadinessEvaluator       runtime evidence certificate
 |   `-- RankingEntry results         derived runtime values, not saved
 |-- filteredApplicants              displayed subset, runtime state
 `-- UserPrefs                       preferences, saved separately
@@ -139,11 +141,17 @@ model/ranking/
 
 All active applicants should appear in the ranking, including applicants with no decisions yet. The algorithm must define their initial standing and how ties are displayed; ordering tied applicants for display should not imply evidence that one is stronger.
 
-The overview does not specify the ranking algorithm. Keep that choice behind `RankingEngine`, with explicit rules for initialization, repeated comparisons, ties, and recalculation.
+The current ranking uses a regularized Bradley-Terry fit with Gamma(2, 1) priors. Keep its implementation behind `RankingEngine`: repeated comparisons and reversals each count once, unassessed applicants start at a neutral score, and rounded-score ties share a displayed position.
 
 ### PairSelector
 
-Chooses a random ordered pair of distinct applicants from the active pool, or no pair when fewer than two members are active. Every ordered pair has equal probability, and previously compared pairs may be selected again. `ComparisonList` creates its own `PairSelector`, selects an initial pair when membership reaches two, and selects subsequent pairs after decisions or when membership changes invalidate the pending pair. Adding another member preserves a valid pending pair. Loading restores the saved pair without selecting a replacement. Keeping selection separate from ranking lets the project change how it chooses useful comparisons without changing applicant records or decision storage.
+Chooses distinct active applicants, or no pair when fewer than two members are active. It first covers under-assessed applicants and connects separate comparison groups, then uses expected information gain under a Laplace approximation to the Bradley-Terry posterior. The candidate shortlist is bounded at 64 pairs; repeated comparisons remain valid, but an immediate rematch is avoided when another pair is available. `ComparisonList` selects an initial pair when membership reaches two and subsequent pairs after decisions or when membership changes invalidate the pending pair. Adding another member preserves a valid pending pair. Loading restores the saved pair without selecting a replacement.
+
+`ComparisonStatisticsIndex` retains per-pair wins, losses, and unique decision IDs for all stored judgments, including decisions involving inactive applicants. Active snapshots are derived in canonical applicant order. The ranking engine and posterior warm-start from completed results; uncertainty uses a sparse precision operator and bounded conjugate-gradient difference solves. The full decision history remains the persistent source of truth.
+
+For `n` active applicants, `e` retained distinct comparison pairs, `I` fit iterations, at most `K = 64` candidate pairs, and at most `T = 500` solver iterations, an ordinary decision refresh is `O(I(n + e) + KT(n + e))` time and `O(n + e)` additional workspace, apart from the retained `O(h)` decision history and ID index. Candidate generation and readiness checks are linear in `n` for the fixed maximum close-group span. Permanent deletion rebuilds aggregates from history once.
+
+`RankingReadinessEvaluator` reports insufficient data until every active applicant has five comparisons and the active comparison graph is connected. It then checks simultaneous 95% confidence bounds for adjacent ranks. Small genuinely close groups may remain uncertain in a ready ranking, with a maximum span of two positions. The status advises the recruiter, who chooses when to stop; pair selection continues after readiness. Thresholds are stored in `UserPrefs` as `ComparisonSettings`.
 
 ## Changes and consistency rules
 

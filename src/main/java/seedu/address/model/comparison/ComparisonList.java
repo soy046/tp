@@ -4,12 +4,13 @@ import static java.util.Objects.requireNonNull;
 import static seedu.address.commons.util.AppUtil.checkArgument;
 import static seedu.address.commons.util.CollectionUtil.requireAllNonNull;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import javafx.beans.property.ReadOnlyObjectProperty;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.ObservableSet;
@@ -18,7 +19,12 @@ import seedu.address.model.applicant.ApplicantId;
 import seedu.address.model.applicant.ApplicantRegistry;
 import seedu.address.model.applicant.exceptions.ApplicantNotFoundException;
 import seedu.address.model.comparison.exceptions.DuplicateComparisonMemberException;
+import seedu.address.model.ranking.BayesianRankingModel;
+import seedu.address.model.ranking.ComparisonStatistics;
+import seedu.address.model.ranking.ComparisonStatisticsIndex;
 import seedu.address.model.ranking.RankingEngine;
+import seedu.address.model.ranking.RankingReadiness;
+import seedu.address.model.ranking.RankingReadinessEvaluator;
 
 /**
  * Manages active comparison membership and the ordered history of decisions.
@@ -33,6 +39,12 @@ public class ComparisonList implements ReadOnlyComparisonList {
     private final ComparisonState comparisonState;
     private final RankingEngine rankingEngine;
     private final PairSelector pairSelector;
+    private ComparisonSettings settings;
+    private ComparisonStatisticsIndex statisticsIndex = ComparisonStatisticsIndex.from(List.of());
+    private BayesianRankingModel posterior;
+    private final ReadOnlyObjectWrapper<RankingReadiness> readiness = new ReadOnlyObjectWrapper<>(
+            new RankingReadiness(RankingReadiness.Status.INSUFFICIENT_DATA,
+                    "Add at least two applicants.", List.of()));
 
     private final ObservableSet<ApplicantId> memberIds = FXCollections.observableSet();
     private final ObservableSet<ApplicantId> unmodifiableMemberIds =
@@ -53,10 +65,31 @@ public class ComparisonList implements ReadOnlyComparisonList {
     public ComparisonList(ApplicantRegistry applicantRegistry,
                           ComparisonState comparisonState,
                           RankingEngine rankingEngine) {
+        this(applicantRegistry, comparisonState, rankingEngine, new ComparisonSettings());
+    }
+
+    /** Constructs a comparison list with explicit evidence settings. */
+    public ComparisonList(ApplicantRegistry applicantRegistry,
+            ComparisonState comparisonState, RankingEngine rankingEngine, ComparisonSettings settings) {
         this.applicantRegistry = requireNonNull(applicantRegistry);
         this.comparisonState = requireNonNull(comparisonState);
         this.rankingEngine = requireNonNull(rankingEngine);
+        this.settings = requireNonNull(settings);
         pairSelector = new PairSelector();
+    }
+
+    public ReadOnlyObjectProperty<RankingReadiness> readinessProperty() {
+        return readiness.getReadOnlyProperty();
+    }
+
+    public RankingReadiness getReadiness() {
+        return readiness.get();
+    }
+
+    /** Applies new evidence thresholds without altering judgments or the pending pair. */
+    public void setSettings(ComparisonSettings settings) {
+        this.settings = requireNonNull(settings);
+        refreshReadiness(statisticsIndex.snapshot(Set.copyOf(memberIds)));
     }
 
     /** Returns a live, unmodifiable observable set of unique active applicant IDs. */
@@ -105,10 +138,14 @@ public class ComparisonList implements ReadOnlyComparisonList {
                 "A pending comparison pair must contain two active members."));
 
         // RankingEngine validates decision structure and IDs before publishing a complete ranking.
-        rankingEngine.recalculate(memberSnapshot, decisionSnapshot);
+        ComparisonStatisticsIndex rebuilt = ComparisonStatisticsIndex.from(decisionSnapshot);
+        ComparisonStatistics statistics = rebuilt.snapshot(memberSnapshot);
+        rankingEngine.recalculate(statistics);
         memberIds.clear();
         memberIds.addAll(memberSnapshot);
         decisionHistory.setAll(decisionSnapshot);
+        statisticsIndex = rebuilt;
+        refreshReadiness(statistics);
         if (pendingPair.isPresent()) {
             comparisonState.setCurrentPair(pendingPair.get());
         } else {
@@ -142,7 +179,7 @@ public class ComparisonList implements ReadOnlyComparisonList {
         }
 
         memberIds.add(applicantId);
-        recalculateRanking(decisionHistory);
+        recalculateRanking(statisticsIndex.snapshot(Set.copyOf(memberIds)));
         if (comparisonState.getCurrentPair().isEmpty()) {
             setNextPairOrClear();
         }
@@ -162,7 +199,7 @@ public class ComparisonList implements ReadOnlyComparisonList {
             return;
         }
 
-        recalculateRanking(decisionHistory);
+        recalculateRanking(statisticsIndex.snapshot(Set.copyOf(memberIds)));
         replaceCurrentPairIfInvalid();
     }
 
@@ -199,10 +236,9 @@ public class ComparisonList implements ReadOnlyComparisonList {
 
         ComparisonDecision decision =
                 new ComparisonDecision(firstApplicantId, secondApplicantId, winnerId);
-        List<ComparisonDecision> updatedHistory = new ArrayList<>(decisionHistory);
-        updatedHistory.add(decision);
-
-        recalculateRanking(updatedHistory);
+        ComparisonStatistics projected = statisticsIndex.snapshotWith(Set.copyOf(memberIds), decision);
+        recalculateRanking(projected);
+        statisticsIndex.record(decision);
         decisionHistory.add(decision);
         setNextPairOrClear();
 
@@ -228,7 +264,8 @@ public class ComparisonList implements ReadOnlyComparisonList {
                 decision.getFirstApplicantId().equals(applicantId)
                         || decision.getSecondApplicantId().equals(applicantId));
 
-        recalculateRanking(decisionHistory);
+        statisticsIndex = ComparisonStatisticsIndex.from(List.copyOf(decisionHistory));
+        recalculateRanking(statisticsIndex.snapshot(Set.copyOf(memberIds)));
         replaceCurrentPairIfInvalid();
     }
 
@@ -237,9 +274,19 @@ public class ComparisonList implements ReadOnlyComparisonList {
      *
      * @param decisions the decisions to use when rebuilding the ranking
      */
-    private void recalculateRanking(List<ComparisonDecision> decisions) {
-        Set<ApplicantId> activeMembers = Set.copyOf(memberIds);
-        rankingEngine.recalculate(activeMembers, List.copyOf(decisions));
+    private void recalculateRanking(ComparisonStatistics statistics) {
+        rankingEngine.recalculate(statistics);
+        refreshReadiness(statistics);
+    }
+
+    private void refreshReadiness(ComparisonStatistics statistics) {
+        try {
+            posterior = BayesianRankingModel.fit(statistics, posterior);
+        } catch (IllegalStateException exception) {
+            posterior = null;
+        }
+        readiness.set(RankingReadinessEvaluator.evaluate(statistics,
+                List.copyOf(rankingEngine.getRanking()), posterior, settings));
     }
 
     /**
@@ -267,9 +314,9 @@ public class ComparisonList implements ReadOnlyComparisonList {
      */
     private void setNextPairOrClear() {
         Optional<ComparisonPair> nextPair = pairSelector.selectPair(
-                Set.copyOf(memberIds),
-                List.copyOf(decisionHistory),
-                List.copyOf(rankingEngine.getRanking()));
+                statisticsIndex.snapshot(Set.copyOf(memberIds)), List.copyOf(rankingEngine.getRanking()), posterior,
+                decisionHistory.isEmpty() ? Optional.empty()
+                        : Optional.of(decisionHistory.get(decisionHistory.size() - 1)), settings);
 
         if (nextPair.isPresent()) {
             comparisonState.setCurrentPair(nextPair.get());

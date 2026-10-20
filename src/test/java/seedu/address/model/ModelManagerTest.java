@@ -29,6 +29,7 @@ import seedu.address.model.applicant.exceptions.DuplicateApplicantException;
 import seedu.address.model.comparison.ComparisonDecision;
 import seedu.address.model.comparison.ComparisonList;
 import seedu.address.model.comparison.ComparisonPair;
+import seedu.address.model.comparison.ComparisonSettings;
 import seedu.address.model.comparison.ComparisonState;
 import seedu.address.model.ranking.RankingEngine;
 import seedu.address.model.ranking.RankingEntry;
@@ -82,6 +83,18 @@ public class ModelManagerTest {
         assertEquals(new UserPrefs(), modelManager.getUserPrefs());
         assertEquals(new GuiSettings(), modelManager.getUserPrefs().getGuiSettings());
         assertEquals(new RecruitDexData(), new RecruitDexData(modelManager.getRecruitDexData()));
+    }
+
+    @Test
+    public void comparisonSettings_changeRefreshesLiveReadiness() {
+        modelManager.getApplicantRegistry().add(ALICE);
+        modelManager.getApplicantRegistry().add(BENSON);
+        modelManager.getComparisonList().add(ALICE.getId());
+        modelManager.getComparisonList().add(BENSON.getId());
+        assertTrue(modelManager.getComparisonList().getReadiness().message().contains("of 5"));
+
+        modelManager.getUserPrefs().setComparisonSettings(new ComparisonSettings(7, 0.90, 0.55, 1));
+        assertTrue(modelManager.getComparisonList().getReadiness().message().contains("of 7"));
     }
 
     @Test

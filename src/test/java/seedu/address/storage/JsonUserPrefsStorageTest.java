@@ -14,6 +14,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import seedu.address.commons.core.GuiSettings;
 import seedu.address.commons.exceptions.DataLoadingException;
+import seedu.address.model.comparison.ComparisonSettings;
 import seedu.address.model.userprefs.UserPrefs;
 
 public class JsonUserPrefsStorageTest {
@@ -103,6 +104,7 @@ public class JsonUserPrefsStorageTest {
 
         UserPrefs original = new UserPrefs();
         original.setGuiSettings(new GuiSettings(1200, 200, 0, 2));
+        original.setComparisonSettings(new ComparisonSettings(7, 0.90, 0.55, 1));
 
         Path pefsFilePath = testFolder.resolve("TempPrefs.json");
         JsonUserPrefsStorage jsonUserPrefsStorage = new JsonUserPrefsStorage(pefsFilePath);

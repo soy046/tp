@@ -5,6 +5,7 @@ import static seedu.address.commons.util.CollectionUtil.requireAllNonNull;
 import java.util.HashMap;
 import java.util.Map;
 
+import javafx.beans.value.ObservableValue;
 import javafx.collections.ListChangeListener;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -19,6 +20,7 @@ import javafx.scene.layout.VBox;
 import seedu.address.model.applicant.Applicant;
 import seedu.address.model.applicant.ApplicantId;
 import seedu.address.model.ranking.RankingEntry;
+import seedu.address.model.ranking.RankingReadiness;
 
 /**
  * Panel displaying the engine's complete ranking with current applicant names resolved by ID.
@@ -35,6 +37,8 @@ public class RankingPanel extends UiPart<Region> {
 
     @FXML
     private Label subtitle;
+    @FXML
+    private Label readinessLabel;
     @FXML
     private ListView<RankingEntry> rankingListView;
 
@@ -58,6 +62,38 @@ public class RankingPanel extends UiPart<Region> {
             rankingListView.refresh();
         });
         updateSubtitle();
+    }
+
+    /** Displays evidence status alongside the complete ranking. */
+    public RankingPanel(ObservableList<RankingEntry> rankingEntries, ObservableList<Applicant> applicants,
+            ObservableValue<RankingReadiness> readiness) {
+        this(rankingEntries, applicants);
+        java.util.Objects.requireNonNull(readiness);
+        renderReadiness(readiness.getValue());
+        readiness.addListener((observable, oldValue, newValue) -> renderReadiness(newValue));
+        applicants.addListener((ListChangeListener<Applicant>) change -> renderReadiness(readiness.getValue()));
+    }
+
+    private void renderReadiness(RankingReadiness readiness) {
+        StringBuilder text = new StringBuilder(readiness.message());
+        if (!readiness.uncertainGroups().isEmpty()) {
+            text.append(readiness.isReady() ? " Close/uncertain: " : " Unresolved: ");
+            for (int groupIndex = 0; groupIndex < readiness.uncertainGroups().size(); groupIndex++) {
+                if (groupIndex > 0) {
+                    text.append("; ");
+                }
+                var group = readiness.uncertainGroups().get(groupIndex);
+                for (int applicantIndex = 0; applicantIndex < group.size(); applicantIndex++) {
+                    if (applicantIndex > 0) {
+                        text.append(" / ");
+                    }
+                    Applicant applicant = applicantsById.get(group.get(applicantIndex));
+                    text.append(applicant == null ? group.get(applicantIndex) : applicant.getName());
+                }
+            }
+            text.append('.');
+        }
+        readinessLabel.setText(text.toString());
     }
 
     private void rebuildApplicantIndex() {

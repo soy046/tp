@@ -358,5 +358,11 @@ public class RemoveFromComparisonCommandTest {
             lastActiveMembers = Set.copyOf(activeMembers);
             lastDecisions = List.copyOf(decisions);
         }
+
+        @Override
+        public void recalculate(seedu.address.model.ranking.ComparisonStatistics statistics) {
+            recalculationCount++;
+            lastActiveMembers = Set.copyOf(statistics.ids());
+        }
     }
 }

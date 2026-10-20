@@ -11,6 +11,7 @@ import seedu.address.logic.parser.exceptions.ParseException;
 import seedu.address.model.applicant.Applicant;
 import seedu.address.model.comparison.ComparisonPair;
 import seedu.address.model.ranking.RankingEntry;
+import seedu.address.model.ranking.RankingReadiness;
 
 /**
  * API of the Logic component
@@ -42,6 +43,9 @@ public interface Logic {
      * The applicant search filter does not affect this view.
      */
     ObservableList<RankingEntry> getRanking();
+
+    /** Current evidence assessment for the active ranking. */
+    ReadOnlyObjectProperty<RankingReadiness> getRankingReadinessProperty();
 
     /**
      * Returns the user prefs' GUI settings.

@@ -10,6 +10,7 @@ import static seedu.address.testutil.TypicalApplicants.CARL;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Random;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
@@ -59,5 +60,14 @@ public class PairSelectorTest {
         Set<ApplicantId> withNullMember = new HashSet<>();
         withNullMember.add(null);
         assertThrows(NullPointerException.class, () -> selector.selectPair(withNullMember, List.of(), List.of()));
+    }
+
+    @Test
+    public void selectPair_threeApplicants_avoidsImmediateRematchAndCoversUnassessed() {
+        PairSelector deterministic = new PairSelector(new Random(7));
+        ComparisonDecision last = new ComparisonDecision(ALICE.getId(), BENSON.getId(), ALICE.getId());
+        ComparisonPair next = deterministic.selectPair(Set.of(ALICE.getId(), BENSON.getId(), CARL.getId()),
+                List.of(last), List.of()).orElseThrow();
+        assertTrue(Set.of(next.getFirstApplicantId(), next.getSecondApplicantId()).contains(CARL.getId()));
     }
 }

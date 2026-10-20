@@ -125,7 +125,8 @@ public class MainWindow extends UiPart<Stage> {
         comparisonPanel = new ComparisonPanel(logic.getCurrentPairProperty(), logic.getApplicantList());
         comparisonPanelPlaceholder.getChildren().add(comparisonPanel.getRoot());
 
-        rankingPanel = new RankingPanel(logic.getRanking(), logic.getApplicantList());
+        rankingPanel = new RankingPanel(logic.getRanking(), logic.getApplicantList(),
+                logic.getRankingReadinessProperty());
         rankingPanelPlaceholder.getChildren().add(rankingPanel.getRoot());
 
         applicantListPanel = new ApplicantListPanel(logic.getFilteredApplicantList());

@@ -50,6 +50,8 @@ public class RankingEngine {
     private final ObservableList<RankingEntry> ranking = FXCollections.observableArrayList();
     private final ObservableList<RankingEntry> unmodifiableRanking =
             FXCollections.unmodifiableObservableList(ranking);
+    private List<ApplicantId> lastIds = List.of();
+    private double[] lastStrengths = new double[0];
 
     /**
      * Constructs an engine with an empty ranking.
@@ -82,11 +84,45 @@ public class RankingEngine {
      */
     public void recalculate(Set<ApplicantId> activeMembers, List<ComparisonDecision> decisions) {
         ComparisonData data = aggregateComparisons(activeMembers, decisions);
+        publish(data);
+    }
+
+    /** Rebuilds the ranking from already validated incremental aggregates. */
+    public void recalculate(ComparisonStatistics statistics) {
+        requireAllNonNull(statistics);
+        List<PairCount> pairs = statistics.edges().stream()
+                .map(edge -> new PairCount(edge.first(), edge.second(), edge.count()))
+                .toList();
+        int[] wins = new int[statistics.size()];
+        int[] counts = new int[statistics.size()];
+        for (int i = 0; i < statistics.size(); i++) {
+            wins[i] = statistics.wins(i);
+            counts[i] = statistics.count(i);
+        }
+        publish(new ComparisonData(statistics.ids(), pairs, wins, counts));
+    }
+
+    private void publish(ComparisonData data) {
         List<int[]> components = findConnectedComponents(data);
-        double[] strengths = fitStrengths(data, components);
+        double[] strengths = fitStrengths(data, components, initialStrengths(data.applicantIds()));
         List<RankingEntry> calculatedEntries = createEntries(data, strengths);
 
+        lastIds = data.applicantIds();
+        lastStrengths = strengths;
         ranking.setAll(calculatedEntries);
+    }
+
+    private double[] initialStrengths(List<ApplicantId> applicantIds) {
+        double[] initial = new double[applicantIds.size()];
+        Arrays.fill(initial, INITIAL_STRENGTH);
+        Map<ApplicantId, Double> previous = new HashMap<>();
+        for (int i = 0; i < lastIds.size(); i++) {
+            previous.put(lastIds.get(i), lastStrengths[i]);
+        }
+        for (int i = 0; i < applicantIds.size(); i++) {
+            initial[i] = previous.getOrDefault(applicantIds.get(i), INITIAL_STRENGTH);
+        }
+        return initial;
     }
 
     /**
@@ -191,7 +227,13 @@ public class RankingEngine {
     private static double[] fitStrengths(ComparisonData data, List<int[]> components) {
         double[] strengths = new double[data.applicantIds().size()];
         Arrays.fill(strengths, INITIAL_STRENGTH);
+        return fitStrengths(data, components, strengths);
+    }
+
+    private static double[] fitStrengths(ComparisonData data, List<int[]> components, double[] initial) {
+        double[] strengths = Arrays.copyOf(initial, initial.length);
         if (data.pairs().isEmpty()) {
+            Arrays.fill(strengths, INITIAL_STRENGTH);
             return strengths;
         }
 

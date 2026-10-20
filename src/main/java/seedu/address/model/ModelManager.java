@@ -38,8 +38,10 @@ public class ModelManager implements Model {
         logger.fine("Initializing with RecruitDex data: " + recruitDexData + " and user prefs " + userPrefs);
 
         rankingEngine = new RankingEngine();
-        this.recruitDexData = new RecruitDexData(recruitDexData, rankingEngine);
         this.userPrefs = new UserPrefs(userPrefs);
+        this.recruitDexData = new RecruitDexData(recruitDexData, rankingEngine,
+                this.userPrefs.getComparisonSettings());
+        this.userPrefs.setComparisonSettingsListener(this.recruitDexData.getComparisonList()::setSettings);
         filteredApplicants = new FilteredList<>(getApplicantRegistry().getApplicantList());
         unmodifiableFilteredApplicants = FXCollections.unmodifiableObservableList(filteredApplicants);
     }
